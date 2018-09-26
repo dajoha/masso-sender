@@ -1,6 +1,8 @@
+# -*- coding: UTF-8 -*-
 
 import os
 import socket
+import time
 
 
 def sendFile(ip, path):
@@ -8,9 +10,9 @@ def sendFile(ip, path):
     nom_fichier = path.encode('utf-8')
     UDP_PORT = 65535
 
-    print("UDP target IP:", UDP_IP)
-    print("UDP target port:", UDP_PORT)
-    print("Input file : ", nom_fichier)
+    print("UDP target IP: {}".format(UDP_IP))
+    print("UDP target port: {}".format(UDP_PORT))
+    print("Input file : {}".format(nom_fichier))
 
 
     sock = socket.socket(
@@ -27,26 +29,25 @@ def sendFile(ip, path):
     Longueur_hex = [hex(int(Longueur) >> i & 0xff) for i in (24,16,8,0)]
     array_Longueur = []
 
-    print("longueur du fichier : ", Longueur)
-    print("hexa : ", Longueur_hex[::-1])
-    print("hexa longueur : ", len(Longueur_hex))
-    print("Nombre de blocs : ", nb_bloc)
+    print("Longueur du fichier : {}".format(Longueur))
+    print("Hexa : {}".format(Longueur_hex[::-1]))
+    print("Nombre de blocs : {}".format(nb_bloc))
 
     Longueur_bytes = bytearray([int(x,0) for x in Longueur_hex[::-1]])
     Fichier_byte = bytearray()
     Fichier_byte.extend(os.path.basename(nom_fichier))
     Byte_blank = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-    print("Longueur array : ", Longueur_bytes)
+    print("Longueur array : {}".format(Longueur_bytes))
     entete_form = [0x01, 0x00, 0x09, 0x09, 0x11, 0x35, 0x00]
     #entete_form=entete_form+Longueur_bytes
-    print("Entete form : ", entete_form)
+    print("Entete form : {}".format(entete_form))
     entete = bytearray(entete_form) + Longueur_bytes + Byte_blank + Fichier_byte + bytearray([0x00])
 
     #entete=entete+Longueur_hex
     sock.sendto(bytearray([0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), (UDP_IP, UDP_PORT))
     time.sleep(0.2)
 
-    print("Entete : ",entete)
+    print("Entete : {}".format(entete))
     sock.sendto(entete, (UDP_IP, UDP_PORT))
 
     time.sleep(0.2)
