@@ -40,7 +40,7 @@ class Frame(wx.Frame):
         self.Bind(wx.EVT_TOGGLEBUTTON, self.connect, self.connect_bt)
         self.Bind(wx.EVT_BUTTON, self.onOpenFile, self.select_file_bt)
         self.Bind(wx.EVT_BUTTON, self.send, self.send_file_bt)
-        
+
         self.path = None
         # end wxGlade
 
@@ -127,7 +127,7 @@ class Frame(wx.Frame):
         """
         dlg = wx.FileDialog(
             self, message="Choose a file",
-            defaultDir=self.currentDirectory, 
+            defaultDir=self.currentDirectory,
             defaultFile="",
             wildcard=wildcard,
             style=wx.FD_OPEN | wx.FD_MULTIPLE | wx.FD_CHANGE_DIR
@@ -139,20 +139,20 @@ class Frame(wx.Frame):
             #self.grid_sizer_2.Layout()
             print "You chose the following file(s):"
             print self.path
-            dlg.Destroy()      
+            dlg.Destroy()
 
     def send(self, event):
         #if not self.path:
         #    print("Choisissez un fichier")
         #else:
         send_file(self.ip_input.GetValue().encode('utf-8'), self.path)
-        
+
 def send_file(ip, path):
     UDP_IP = ip
-    UDP_PORT = 65535 
+    UDP_PORT = 65535
     nom_fichier= path
     print (ip)
-    
+
     print ("UDP target IP:", UDP_IP)
     print ("UDP target port:", UDP_PORT)
     print("chemin : ", path)
@@ -201,7 +201,7 @@ def send_file(ip, path):
     num_dec2=0
     # Envoi du fichier
     for i in range(0,nb_bloc) :
-        fichier_cut = fichier[i*1460:1460*i+1460]	
+        fichier_cut = fichier[i*1460:1460*i+1460]
         num_dec=i-offset
         num2=format(num_dec2, '02x')
         num=format(num_dec, '02x')
