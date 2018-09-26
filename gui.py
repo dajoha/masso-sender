@@ -6,8 +6,6 @@
 #
 
 import os
-import socket
-import argparse
 import wx
 import wx.grid
 
