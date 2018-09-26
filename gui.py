@@ -175,7 +175,7 @@ class Frame(wx.Frame):
         #if not self.inputFilePath:
         #    print("Choisissez un fichier")
         #else:
-        masso.sendFile(self.ip_input.GetValue().encode('utf-8'), self.inputFilePath)
+        masso.sendFile(self.ip_input.GetValue(), self.inputFilePath)
 
 
 
