@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-import cli
-import gui
+import lib.cli as cli
+import lib.gui as gui
 
 
 if __name__ == "__main__":
