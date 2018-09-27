@@ -9,6 +9,168 @@ from lib.exceptions import MassoException
 
 ENCODING = 'utf-8'
 
+SRC_PORT = 11000
+DEST_PORT = 65535
+BLOCKSIZE = 1460
+
+
+def to_str(s, error_msg):
+    """ Convert unicode strings to strings, and raise an error if the arg is not as string. """
+    if isinstance(s, unicode):
+        return s.encode(ENCODING)
+    elif isinstance(s, str):
+        return s
+    else:
+        error(error_msg)
+
+
+def str2list(s):
+    return [ ord(c) for c in s ]
+
+
+def list2human(l):
+    hexs = [ "%0.2X" % c for c in l ]
+    return ' '.join(hexs)
+
+
+def list2chars(l):
+    s = ''
+    for asc in l:
+        c = (asc < 32) and ' ' or chr(asc)
+        s += c + '  '
+    return s
+
+
+def get64bits(n):
+    return bytearray([ n >> i & 0xff for i in (0,8,16,24) ])
+
+
+def zeroes(n):
+    return bytearray([0]) * n
+
+
+def dumpListData(title, data):
+    print "{}: | {}".format(title, list2human(data))
+    print "{}  | {}".format(' '*len(title), list2chars(data))
+
+
+def dumpStrData(title, string):
+    l = str2list(string)
+    dumpListData(title, l)
+
+
+def getBytearray(data):
+    if isinstance(data, list) or isinstance(data, str):
+        return bytearray(data)
+    elif isinstance(data, int):
+        return bytearray([ data ])
+    elif isinstance(data, bytearray):
+        return data
+    else:
+        raise MassoException("Trame: data type not handled ({})"
+            .format(type(data))
+        )
+
+
+
+
+class MassoSocket:
+    def __init__(self, ip=None, inputFile=None):
+        if ip == None or inputFile == None:
+            self.error("Missing constructor parameter")
+
+        self.ip = ip
+        self.inputFile = inputFile
+
+        self.sock = socket.socket(
+            socket.AF_INET,   # Internet
+            socket.SOCK_DGRAM # UDP
+        )
+        self.sock.bind(('0.0.0.0', SRC_PORT))
+        self.sock.setblocking(0)
+
+        self.destAddress = (self.ip, DEST_PORT)
+
+    def send(self, data):
+        if isinstance(data, Trame):
+            self.send(data.data)
+        else:
+            self.sock.sendto(data, self.destAddress)
+
+    def sendTrame(self, *datas, **kwds):
+        trame = Trame(*datas)
+        self.send(trame)
+
+        #  time.sleep(0.15)
+        #  resp = self.recv()
+
+        resp = None
+        for i in range(16):
+            try:
+                time.sleep(0.05)
+                resp = self.recv()
+                break
+            except Exception as e:
+                pass
+
+        if resp == None:
+            msg = "No response from the device"
+            if ('title' in kwds):
+                msg += ' (trame: {})'.format(kwds['title'])
+            self.error(msg)
+
+        return resp
+
+    def recv(self):
+        return self.sock.recv(2048)
+
+    def sendFileTransferOrder(self, filename, data_length):
+        trame_header = [ 0x01, 0x00, 0x09, 0x09, 0x11, 0x35, 0x00 ]
+
+        return self.sendTrame(          \
+            trame_header,               \
+            get64bits(data_length),     \
+            zeroes(6),                  \
+            filename,                   \
+            0,                          \
+            title="file transfer order" \
+        )
+
+    def sendDataBlock(self, n, data_block):
+        trame_header = [ 0x01, 0x00, 0x0a, 0x09, 0x2d, 0x1c, 0x7f ]
+
+        return self.sendTrame( \
+            trame_header,      \
+            get64bits(n),      \
+            data_block,        \
+            title="data block {}".format(n) \
+        )
+
+    def error(self, msg):
+        raise MassoException("MassoSocket: {}".format(msg))
+
+
+
+class Trame:
+    def __init__(self, *datas):
+        self.data = bytearray()
+        for data in datas:
+            self.data += getBytearray(data)
+
+    def set(self, data):
+        self.data = getBytearray(data)
+
+    def append(self, *new_datas):
+        for new_data in new_datas:
+            self.data += getBytearray(new_data)
+
+    def append64bits(self, num):
+        self.append(get64bits(num))
+
+    def zeroPad(self, size):
+        self.append(zeroes(size))
+
+
 
 def sendFile(ip, input_file):
     """ Send a file to a Masso device. """
@@ -17,83 +179,60 @@ def sendFile(ip, input_file):
         """ Raise an error """
         raise MassoException("sendFile(): {}".format(msg))
 
-    def to_str(s, error_msg):
-        """ Convert unicode strings to strings, and raise an error if the arg is not as string. """
-        if isinstance(s, unicode):
-            return s.encode(ENCODING)
-        elif isinstance(s, str):
-            return s
-        else:
-            error(error_msg)
-
-    UDP_IP = to_str(ip, 'Bad IP value')
-    UDP_PORT = 65535
+    DEST_IP = to_str(ip, 'Bad IP value')
 
     input_file = to_str(input_file, 'Bad input file')
     filename = os.path.basename(input_file)
 
-    print("UDP target IP: {}".format(UDP_IP))
-    print("UDP target port: {}".format(UDP_PORT))
+    print("UDP target IP: {}".format(DEST_IP))
+    print("UDP target port: {}".format(DEST_PORT))
     print("Input file : {}".format(input_file))
 
 
-    sock = socket.socket(
-        socket.AF_INET,   # Internet
-        socket.SOCK_DGRAM # UDP
-    )
-    sock.bind(('0.0.0.0', 11000))
-    sock.setblocking(0)
+    masso_sock = MassoSocket(ip=DEST_IP, inputFile=input_file)
 
 
-    fichier = open(input_file, "rb").read()
-    Longueur = len(fichier)
-    nb_bloc = Longueur/1460 + 1
-    Longueur_hex = [hex(int(Longueur) >> i & 0xff) for i in (24,16,8,0)]
-    array_Longueur = []
+    #  masso_sock.send(bytearray([0x01, 0x00, 0x01]))
 
-    print("Longueur du fichier : {}".format(Longueur))
-    print("Hexa : {}".format(Longueur_hex[::-1]))
-    print("Nombre de blocs : {}".format(nb_bloc))
+    #  time.sleep(0.15)
 
-    Longueur_bytes = bytearray([int(x,0) for x in Longueur_hex[::-1]])
-    Fichier_byte = bytearray()
-    Fichier_byte.extend(filename)
-    Byte_blank = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-    print("Longueur array : {}".format(Longueur_bytes))
-    entete_form = [0x01, 0x00, 0x09, 0x09, 0x11, 0x35, 0x00]
-    #entete_form=entete_form+Longueur_bytes
-    print("Entete form : {}".format(entete_form))
-    entete = bytearray(entete_form) + Longueur_bytes + Byte_blank + Fichier_byte + bytearray([0x00])
+    #  data = masso_sock.recv()
+    #  human_data = [ c.encode('hex') for c in data ]
+    #  print human_data
 
-    #entete=entete+Longueur_hex
-    sock.sendto(bytearray([0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), (UDP_IP, UDP_PORT))
-    time.sleep(0.2)
+    #  return
 
-    print("Entete : {}".format(entete))
-    sock.sendto(entete, (UDP_IP, UDP_PORT))
 
-    time.sleep(0.2)
-    entete_fichier = [0x01, 0x00, 0x0a, 0x09, 0x2d, 0x1c, 0x7f]
 
-    offset = 0
-    num_dec2 = 0
+    #  masso_sock.send(bytearray([0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]))
+    #  time.sleep(0.2)
 
-    # Envoi du fichier:
-    for i in range(0,nb_bloc) :
-        fichier_cut = fichier[i*1460 : 1460*i+1460]
-        num_dec = i - offset
-        num2 = format(num_dec2, '02x')
-        num = format(num_dec, '02x')
-        print(num)
-        if num_dec >= int(0xff):
-            num_dec2 = num_dec2 + 1
-            offset = i
-        sock.sendto(bytearray(entete_fichier)+bytearray.fromhex(str(num))+bytearray.fromhex(str(num2))+bytearray([0x00,0x00])+fichier_cut, (UDP_IP, UDP_PORT))
-        time.sleep(0.15)
-        data = sock.recv(2048)
-        if data == "":
+
+
+    inputData = open(input_file, "rb").read()
+
+    dataLength = len(inputData)
+    nbBlocks = dataLength / BLOCKSIZE + 1
+
+    print("Longueur du fichier : {}".format(dataLength))
+    print("Nombre de blocs : {}".format(nbBlocks))
+
+
+
+    # TRAME ORDRE D'ENVOI DE FICHIER:
+
+    response = masso_sock.sendFileTransferOrder(filename, dataLength)
+
+    dumpStrData('RESPONSE', response)
+
+
+    # ENVOI DU FICHIER:
+
+    for N in range(nbBlocks) :
+        data_block = inputData[N*BLOCKSIZE : (N+1)*BLOCKSIZE]
+
+        response = masso_sock.sendDataBlock(N, data_block)
+
+        if response == "":
             time.sleep(1)
-        else:
-            #print(data)
-            data = ""
 
