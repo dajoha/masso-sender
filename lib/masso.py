@@ -4,15 +4,37 @@ import os
 import socket
 import time
 
+from lib.exceptions import MassoException
 
-def sendFile(ip, path):
-    UDP_IP = ip.encode('utf-8')
-    nom_fichier = path.encode('utf-8')
+
+ENCODING = 'utf-8'
+
+
+def sendFile(ip, input_file):
+    """ Send a file to a Masso device. """
+
+    def error(msg):
+        """ Raise an error """
+        raise MassoException("sendFile(): {}".format(msg))
+
+    def to_str(s, error_msg):
+        """ Convert unicode strings to strings, and raise an error if the arg is not as string. """
+        if isinstance(s, unicode):
+            return s.encode(ENCODING)
+        elif isinstance(s, str):
+            return s
+        else:
+            error(error_msg)
+
+    UDP_IP = to_str(ip, 'Bad IP value')
     UDP_PORT = 65535
+
+    input_file = to_str(input_file, 'Bad input file')
+    filename = os.path.basename(input_file)
 
     print("UDP target IP: {}".format(UDP_IP))
     print("UDP target port: {}".format(UDP_PORT))
-    print("Input file : {}".format(nom_fichier))
+    print("Input file : {}".format(input_file))
 
 
     sock = socket.socket(
@@ -23,7 +45,7 @@ def sendFile(ip, path):
     sock.setblocking(0)
 
 
-    fichier = open(nom_fichier, "rb").read()
+    fichier = open(input_file, "rb").read()
     Longueur = len(fichier)
     nb_bloc = Longueur/1460 + 1
     Longueur_hex = [hex(int(Longueur) >> i & 0xff) for i in (24,16,8,0)]
@@ -35,7 +57,7 @@ def sendFile(ip, path):
 
     Longueur_bytes = bytearray([int(x,0) for x in Longueur_hex[::-1]])
     Fichier_byte = bytearray()
-    Fichier_byte.extend(os.path.basename(nom_fichier))
+    Fichier_byte.extend(filename)
     Byte_blank = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
     print("Longueur array : {}".format(Longueur_bytes))
     entete_form = [0x01, 0x00, 0x09, 0x09, 0x11, 0x35, 0x00]
