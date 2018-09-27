@@ -12,6 +12,8 @@ import wx.grid
 import masso
 
 
+DEFAULT_IP_ADDRESS = "192.168.0.22"
+
 WILDCARDS = \
     "GCode files (*.nc,*.gcode)|*.nc;*.gcode|" \
     "All files (*.*)|*.*"
@@ -19,15 +21,17 @@ WILDCARDS = \
 
 
 class Frame(wx.Frame):
-    def __init__(self, *args, **kwds):
+    def __init__(self, default_ip=None, default_file=''):
+        if (default_ip == None):
+            default_ip = DEFAULT_IP_ADDRESS
+
         # begin wxGlade: Frame.__init__
-        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init__(self, *args, **kwds)
+        wx.Frame.__init__(self, None, wx.ID_ANY, "", style=wx.DEFAULT_FRAME_STYLE)
         self.SetSize((400, 300))
         self.currentDirectory = os.getcwd()
         self.notebook_1 = wx.Notebook(self, wx.ID_ANY)
         self.notebook_1_pane_1 = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.ip_input = wx.TextCtrl(self.notebook_1_pane_1, wx.ID_ANY, "192.168.0.22", style=wx.TE_CENTRE)
+        self.ip_input = wx.TextCtrl(self.notebook_1_pane_1, wx.ID_ANY, default_ip, style=wx.TE_CENTRE)
         self.ip_input.SetMinSize((136, 30))
         self.connect_bt = wx.ToggleButton(self.notebook_1_pane_1, wx.ID_ANY, "CONNECT")
         self.select_file_bt = wx.Button(self.notebook_1_pane_1, wx.ID_ANY, "SELECT FILE")
@@ -44,7 +48,7 @@ class Frame(wx.Frame):
         # end wxGlade
 
         # Set the file path initially (empty path):
-        self.setFilePath('', update_layout=False)
+        self.setFilePath(default_file, update_layout=False)
 
         # A workaround for the Linux "Awesome" window manager:
         self.Bind(wx.EVT_ACTIVATE, self.AwesomeWM_Workaround)
@@ -180,8 +184,13 @@ class Frame(wx.Frame):
 
 
 class MassoSenderApp(wx.App):
+    def __init__(self, default_file='', default_ip=DEFAULT_IP_ADDRESS):
+        self.defaultIp = default_ip
+        self.defaultFile = default_file
+        wx.App.__init__(self)
+
     def OnInit(self):
-        self.frame = Frame(None, wx.ID_ANY, "")
+        self.frame = Frame(default_ip=self.defaultIp, default_file=self.defaultFile)
         self.SetTopWindow(self.frame)
         self.frame.Show()
         return True
