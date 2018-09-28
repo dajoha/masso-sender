@@ -63,7 +63,6 @@ class ProgressThread(threading.Thread):
                 self.frame.setProgressInfo(infos)
 
 
-
 class Frame(wx.Frame):
     """ The main window of the application. """
 
@@ -73,21 +72,33 @@ class Frame(wx.Frame):
 
         # begin wxGlade: Frame.__init__
         wx.Frame.__init__(self, None, wx.ID_ANY, "", style=wx.DEFAULT_FRAME_STYLE)
-        self.SetSize((400, 300))
         self.currentDirectory = os.getcwd()
-        self.notebook_1 = wx.Notebook(self, wx.ID_ANY)
-        self.notebook_1_pane_1 = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.ip_input = wx.TextCtrl(self.notebook_1_pane_1, wx.ID_ANY, default_ip, style=wx.TE_CENTRE)
-        self.ip_input.SetMinSize((136, 30))
-        self.connect_bt = wx.ToggleButton(self.notebook_1_pane_1, wx.ID_ANY, "CONNECT")
-        self.select_file_bt = wx.Button(self.notebook_1_pane_1, wx.ID_ANY, "SELECT FILE")
-        self.send_file_bt = wx.Button(self.notebook_1_pane_1, wx.ID_ANY, "SEND")
-        self.notebook_1_notebook_status = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.notebook_1_notebook_tools = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.tools_grid_name = wx.grid.Grid(self.notebook_1_notebook_tools, wx.ID_ANY, size=(1, 1))
+
+        # MAIN WINDOW:
+        # Will be updated after, these values are useless (see onFrameActivate()):
+        self.SetSize((300, 300))
+
+        # MAIN NOTEBOOK:
+        self.notebook = wx.Notebook(self, wx.ID_ANY)
+
+        # CONNECT PANEL:
+        self.notebook_panel_connect = wx.Panel(self.notebook, wx.ID_ANY)
+        self.ip_input = wx.TextCtrl(self.notebook_panel_connect, wx.ID_ANY, default_ip, style=wx.TE_CENTRE)
+        self.connect_bt = wx.ToggleButton(self.notebook_panel_connect, wx.ID_ANY, "CONNECT")
+        self.select_file_bt = wx.Button(self.notebook_panel_connect, wx.ID_ANY, "SELECT FILE")
+        self.send_file_bt = wx.Button(self.notebook_panel_connect, wx.ID_ANY, "SEND")
+
+        # STATUS PANEL:
+        self.notebook_panel_status = wx.Panel(self.notebook, wx.ID_ANY)
+
+        # TOOLS PANEL:
+        self.notebook_panel_tools = wx.Panel(self.notebook, wx.ID_ANY)
+        self.tools_grid_name = wx.grid.Grid(self.notebook_panel_tools, wx.ID_ANY, size=(1, 1))
 
         self.__set_properties()
         self.__do_layout()
+
+        # EVENTS:
         self.Bind(wx.EVT_TOGGLEBUTTON, self.connect, self.connect_bt)
         self.Bind(wx.EVT_BUTTON, self.onOpenFile, self.select_file_bt)
         self.Bind(wx.EVT_BUTTON, self.send, self.send_file_bt)
@@ -99,6 +110,7 @@ class Frame(wx.Frame):
         self.setFilePath(default_file, update_layout=False)
 
         # A workaround for the Linux "Awesome" window manager:
+        self.firstActivate = True
         self.Bind(wx.EVT_ACTIVATE, self.onFrameActivate)
 
         self.sendFileThread = None
@@ -109,9 +121,15 @@ class Frame(wx.Frame):
 
     def __set_properties(self):
         # begin wxGlade: Frame.__set_properties
+
+        # MAIN WINDOW:
         self.SetTitle("Masso Sender")
-        self.select_file_bt.SetMinSize((120, 22))
-        self.send_file_bt.SetMinSize((120, 22))
+
+        # CONNECT PANEL:
+        #  self.select_file_bt.SetMinSize((120, 22))
+        #  self.send_file_bt.SetMinSize((120, 22))
+
+        # TOOLS PANEL:
         self.tools_grid_name.CreateGrid(2, 2)
         self.tools_grid_name.EnableEditing(0)
         self.tools_grid_name.SetColLabelValue(0, "TOOL NO.")
@@ -124,59 +142,104 @@ class Frame(wx.Frame):
 
     def __do_layout(self):
         # begin wxGlade: Frame.__do_layout
-        sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
-        grid_sizer_1 = wx.BoxSizer(wx.VERTICAL)
-        self.grid_sizer_2 = wx.GridSizer(7, 1, 0, 0)
-        label_4 = wx.StaticText(self.notebook_1_pane_1, wx.ID_ANY, "MASSO IP ADDRESS :", style=wx.ALIGN_CENTER)
-        label_4.SetMinSize((136, 15))
+
+        # CONNECT PANEL:
+        self.grid_sizer_2 = wx.GridSizer(4, 1, 0, 0)
+
+
+        # IP SELECTION SECTION:
+
+        ip_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Label 'MASSO IP ADDRESS':
+        label_4 = wx.StaticText(self.notebook_panel_connect, wx.ID_ANY, "MASSO IP ADDRESS :", style=wx.ALIGN_CENTER)
+        #  label_4.SetMinSize((136, 15))
         label_4.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
-        self.grid_sizer_2.Add(label_4, 0, wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL, 0)
-        self.grid_sizer_2.Add(self.ip_input, 0, wx.ALIGN_CENTER, 0)
-        self.grid_sizer_2.Add(self.connect_bt, 0, wx.ALIGN_CENTER | wx.SHAPED, 0)
-        static_line_1 = wx.StaticLine(self.notebook_1_pane_1, wx.ID_ANY)
-        self.grid_sizer_2.Add(static_line_1, 0, wx.ALIGN_CENTER | wx.ALL | wx.EXPAND, 0)
-        self.grid_sizer_2.Add(self.select_file_bt, 0, wx.ALIGN_CENTER, 0)
-        self.file_path = wx.StaticText(self.notebook_1_pane_1, wx.ID_ANY, "", style=wx.ALIGN_CENTER)
-        self.file_path.SetMinSize((136, 15))
-        self.file_path.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
-        self.grid_sizer_2.Add(self.file_path, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.SHAPED, 0)
+        ip_sizer.Add(label_4, 0, wx.ALIGN_CENTER | wx.BOTTOM, 5)
+
+        # Text input (ip):
+        self.ip_input.SetMinSize((236, 35))
+        ip_sizer.Add(self.ip_input, 0, wx.ALIGN_CENTER, 0)
+
+        self.grid_sizer_2.Add(ip_sizer, 0, wx.EXPAND | wx.TOP, 10)
+
+        # Button 'CONNECT':
+        self.connect_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
+        self.grid_sizer_2.Add(self.connect_bt, 0, wx.ALIGN_CENTER, 0)
+
+
+        # FILE SELECTION SECTION:
+
+        file_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Button 'SELECT FILE'
+        self.select_file_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
+        file_sizer.Add(self.select_file_bt, 0, wx.ALIGN_CENTER, 0)
+
+        # Text label (file path):
+        self.file_path = wx.StaticText(self.notebook_panel_connect, wx.ID_ANY, "", style=wx.ALIGN_CENTER)
+        self.file_path.SetMinSize((136, 25))
+        self.file_path.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
+        file_sizer.Add(self.file_path, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+
+        self.grid_sizer_2.Add(file_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+
+
+        # SEND SECTION:
+
+        # Button 'SEND':
+        self.send_file_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
         self.grid_sizer_2.Add(self.send_file_bt, 0, wx.ALIGN_CENTER, 0)
-        self.notebook_1_pane_1.SetSizer(self.grid_sizer_2)
-        label_3 = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "MACHINE STATUS :", style=wx.ALIGN_CENTER)
+
+        self.notebook_panel_connect.SetSizer(self.grid_sizer_2)
+
+
+
+        # STATUS PANEL:
+        grid_sizer_1 = wx.BoxSizer(wx.VERTICAL)
+        label_3 = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "MACHINE STATUS :", style=wx.ALIGN_CENTER)
         label_3.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(label_3, 0, wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL, 0)
-        status_input = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "-", style=wx.ALIGN_CENTER)
+        status_input = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "-", style=wx.ALIGN_CENTER)
         status_input.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(status_input, 0, wx.EXPAND, 0)
-        percent_input = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "-", style=wx.ALIGN_CENTER)
+        percent_input = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "-", style=wx.ALIGN_CENTER)
         percent_input.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(percent_input, 0, wx.EXPAND, 0)
-        counter_input = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "-", style=wx.ALIGN_CENTER)
+        counter_input = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "-", style=wx.ALIGN_CENTER)
         counter_input.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(counter_input, 0, wx.EXPAND, 0)
-        static_line_2 = wx.StaticLine(self.notebook_1_notebook_status, wx.ID_ANY)
-        grid_sizer_1.Add(static_line_2, 0, wx.ALIGN_CENTER | wx.ALL | wx.EXPAND, 0)
-        serial_no_input = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "Serial No : ", style=wx.ALIGN_CENTER)
+        spacer_2 = wx.StaticLine(self.notebook_panel_status, wx.ID_ANY)
+        grid_sizer_1.Add(spacer_2, 0, wx.ALIGN_CENTER | wx.ALL | wx.EXPAND, 0)
+        serial_no_input = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "Serial No : ", style=wx.ALIGN_CENTER)
         serial_no_input.SetMinSize((136, 15))
         serial_no_input.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(serial_no_input, 0, wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL, 0)
-        core_version_input = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "Core Version :", style=wx.ALIGN_CENTER)
+        core_version_input = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "Core Version :", style=wx.ALIGN_CENTER)
         core_version_input.SetMinSize((136, 15))
         core_version_input.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(core_version_input, 0, wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL, 0)
-        software_version_input = wx.StaticText(self.notebook_1_notebook_status, wx.ID_ANY, "Software Version :", style=wx.ALIGN_CENTER)
+        software_version_input = wx.StaticText(self.notebook_panel_status, wx.ID_ANY, "Software Version :", style=wx.ALIGN_CENTER)
         software_version_input.SetMinSize((136, 15))
         software_version_input.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         grid_sizer_1.Add(software_version_input, 0, wx.ALIGN_BOTTOM | wx.ALIGN_CENTER_HORIZONTAL, 0)
-        self.notebook_1_notebook_status.SetSizer(grid_sizer_1)
+        self.notebook_panel_status.SetSizer(grid_sizer_1)
+
+        # TOOLS PANEL:
+        sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_4.Add(self.tools_grid_name, 0, wx.ALIGN_CENTER, 0)
-        self.notebook_1_notebook_tools.SetSizer(sizer_4)
-        self.notebook_1.AddPage(self.notebook_1_pane_1, "CONNECT")
-        self.notebook_1.AddPage(self.notebook_1_notebook_status, "STATUS")
-        self.notebook_1.AddPage(self.notebook_1_notebook_tools, "TOOLS")
-        sizer_1.Add(self.notebook_1, 1, wx.EXPAND, 0)
+        self.notebook_panel_tools.SetSizer(sizer_4)
+
+        # MAIN NOTEBOOK:
+        self.notebook.AddPage(self.notebook_panel_connect, "CONNECT")
+        self.notebook.AddPage(self.notebook_panel_status, "STATUS")
+        self.notebook.AddPage(self.notebook_panel_tools, "TOOLS")
+
+        # MAIN SIZER:
+        sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
+        sizer_1.Add(self.notebook, 1, wx.EXPAND, 0)
         self.SetSizer(sizer_1)
+
         self.Layout()
         # end wxGlade
 
@@ -184,7 +247,11 @@ class Frame(wx.Frame):
     def onFrameActivate(self, event):
         """ A workaround for the Linux "Awesome" window manager.  """
 
-        self.updateFileLabel()
+        # TODO: the current solution (using a firstActivate prop) is not very good:
+        if self.firstActivate:
+            self.SetSize((400, 300))
+            self.Center()
+            self.firstActivate = False
 
 
     def onUpdateProgressInfo(self, event):
