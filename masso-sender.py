@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import traceback
+
 from lib.exceptions import MassoException
 import lib.cli as cli
+import lib.logger as logger
 
 
 def main():
@@ -28,5 +31,12 @@ if __name__ == "__main__":
     try:
         main()
     except MassoException as e:
+        logger.reset()
         print(e)
+    except KeyboardInterrupt:
+        logger.reset()
+        print "Keyboard interrupt"
+    except Exception:
+        logger.reset()
+        traceback.print_exc()
 

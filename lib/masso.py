@@ -23,8 +23,19 @@ MASSO_PORT = 65535
 # The data block size to send to the Masso device:
 BLOCKSIZE = 1460
 
+
+# Data transmission error settings:
+
+# Number of retries for calling 'MassoSocket.recv()' before throwing an exception:
+NB_RECV_RETRIES = 16
+# Time to wait before each call of 'MassoSocket.recv()', in seconds:
+TIME_BEFORE_RECV_RETRY = 0.05
+
+
 # For debug:
 MASSO_DEBUG_EMUL = os.getenv('MASSO_DEBUG_EMUL', False)
+if MASSO_DEBUG_EMUL:
+    import random
 
 
 ##############################  UTILITY FUNCTIONS  #############################
@@ -108,12 +119,18 @@ def getBytearray(data):
         )
 
 
-def logProgress(N, nb_blocks):
+def logProgress(masso_socket, N, nb_blocks):
     """ Display a progress message. """
 
-    logger.erase()
     percent = N * 100 / nb_blocks
-    msg = "[{}%] Data block {}/{}".format(percent, N, nb_blocks)
+    msg = "[{}%] Data block {}/{} (recv retries: avg:{}, max:{}, allowed:{})".format(
+        percent,
+        N, nb_blocks,
+        masso_socket.averageRecvRetries, masso_socket.maxRecvFrameRetries,
+        NB_RECV_RETRIES
+    )
+
+    logger.erase()
     logger.log(msg)
 
 
@@ -145,13 +162,28 @@ class MassoSocket:
 
         self.destAddress = (self.ip, MASSO_PORT)
 
+        # Initialize some debug variables:
+
+        # How many times the recv() method fails:
+        self.recvFailCount = 0
+        # How many retries for calling `recv()` where needed in the last `sendFrame()` call:
+        self.lastRecvFrameRetries = 0
+        # Maximum `recv()` retries:
+        self.maxRecvFrameRetries = 0
+        # Average `recv()` retries per call of `sendFrame()`:
+        self.averageRecvRetries = 0
+        # How many retries for calling `recv()` where needed for all the `sendFrame()` calls:
+        self.nbRecvFrameRetries = 0
+        # How many times `sendFrame()` was called:
+        self.nbSendFrameCalls = 0
+
 
     def sendPing(self):
         """ High-level frame handling: send a ping to the Masso device. """
 
         frame_header = [ 0x01, 0x00, 0x01 ]
 
-        return self.sendFrame(frame_header)
+        return self.sendFrame(frame_header, title="Ping")
 
 
     def sendFileTransferOrder(self, filename, data_length):
@@ -165,7 +197,7 @@ class MassoSocket:
             zeroes(6),
             filename,
             0,
-            title="file transfer order"
+            title="File Transfer Order"
         )
 
 
@@ -178,7 +210,7 @@ class MassoSocket:
             frame_header,
             get64bits(n),
             data_block,
-            title="data block {}".format(n)
+            title="Data Block {}".format(n)
         )
 
 
@@ -189,25 +221,31 @@ class MassoSocket:
             (can be useful for debugging)
         """
 
+        self.nbSendFrameCalls += 1
+
         frame = Frame(*datas)
         self.send(frame)
 
-        resp = None
-        for i in range(16):
+        self.lastRecvFrameRetries = 0
+        response = None
+        for i in range(NB_RECV_RETRIES):
             try:
-                time.sleep(0.05)
-                resp = self.recv()
+                time.sleep(TIME_BEFORE_RECV_RETRY)
+                response = self.recv()
                 break
             except Exception as e:
+                self.lastRecvFrameRetries += 1
                 pass
 
-        if resp == None:
+        self.updateRecvInfos()
+
+        if response == None:
             msg = "No response from the device"
             if ('title' in kwds):
                 msg += ' (frame: {})'.format(kwds['title'])
             self.error(msg)
 
-        return resp
+        return response
 
 
     def send(self, data):
@@ -227,10 +265,25 @@ class MassoSocket:
     def recv(self):
         """ Try to receive a pending frame. May throw an exception on fail. """
 
-        if MASSO_DEBUG_EMUL:
-            return "fake data"
-        else:
-            return self.sock.recv(2048)
+        try:
+            if MASSO_DEBUG_EMUL:
+                if random.randint(0, 100) < 50:
+                    raise MassoException("fake exception")
+                return "fake data"
+            else:
+                return self.sock.recv(2048)
+        except Exception as e:
+            self.recvFailCount += 1
+            raise e
+
+
+    def updateRecvInfos(self):
+        """ Update debug informations about the number of retries for 'recv()'. """
+
+        self.nbRecvFrameRetries += self.lastRecvFrameRetries
+        self.averageRecvRetries = self.nbRecvFrameRetries / self.nbSendFrameCalls
+        if self.lastRecvFrameRetries > self.maxRecvFrameRetries:
+            self.maxRecvFrameRetries = self.lastRecvFrameRetries
 
 
     def error(self, msg):
@@ -320,9 +373,9 @@ def sendFile(masso_ip, input_file):
     for N in range(nb_blocks) :
         data_block = input_data[N*BLOCKSIZE : (N+1)*BLOCKSIZE]
         response = masso_sock.sendDataBlock(N, data_block)
-        logProgress(N, nb_blocks)
+        logProgress(masso_sock, N, nb_blocks)
 
-    logProgress(nb_blocks, nb_blocks)
+    logProgress(masso_sock, nb_blocks, nb_blocks)
     logger.newline()
     print "File transfered with success."
 

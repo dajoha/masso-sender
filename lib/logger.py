@@ -34,3 +34,11 @@ def newline():
     print
     reg = ''
 
+def reset():
+    """ Reset the log: if a previously message was not erased or "newlined", then start
+        a new line.
+    """
+
+    if len(reg) != 0:
+        newline()
+
