@@ -23,8 +23,11 @@ WILDCARDS = \
     "All files (*.*)|*.*"
 
 
-# A new wx event to handle the file transfer progress between multiple threads:
+# A wx event to handle the file transfer progress between multiple threads:
 UpdateProgressInfo, EVT_UPDATE_PROGRESS_INFO = wx.lib.newevent.NewEvent()
+
+# A wx event which triggers on file transfer complete:
+FileTransferComplete, EVT_FILE_TRANSFER_COMPLETE = wx.lib.newevent.NewEvent()
 
 
 
@@ -44,8 +47,9 @@ UpdateProgressInfo, EVT_UPDATE_PROGRESS_INFO = wx.lib.newevent.NewEvent()
 class MassoThread(threading.Thread):
     """ Thread which processes file transfers. """
 
-    def __init__(self, ip, filename, lock, verbose):
+    def __init__(self, frame, ip, filename, lock, verbose):
         threading.Thread.__init__(self)
+        self.frame = frame
         self.ip = ip
         self.filename = filename
         self.lock = lock
@@ -53,7 +57,7 @@ class MassoThread(threading.Thread):
 
     def run(self):
         self.sender.start()
-
+        wx.PostEvent(self.frame, FileTransferComplete())
 
 
 class ProgressThread(threading.Thread):
@@ -122,6 +126,9 @@ class Frame(wx.Frame):
 
         self.progressInfo = None
 
+        self.sendFileThread = None
+        self.progressThread = None
+
         # Set the file path initially (empty path):
         self.setFilePath(default_file, update_layout=False)
 
@@ -129,10 +136,8 @@ class Frame(wx.Frame):
         self.firstActivate = True
         self.Bind(wx.EVT_ACTIVATE, self.onFrameActivate)
 
-        self.sendFileThread = None
-        self.progressThread = None
-
         self.Bind(EVT_UPDATE_PROGRESS_INFO, self.onUpdateProgressInfo)
+        self.Bind(EVT_FILE_TRANSFER_COMPLETE, self.onFileTransferComplete)
 
 
     def __set_properties(self):
@@ -218,6 +223,7 @@ class Frame(wx.Frame):
         # Button 'SEND':
         self.send_file_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
         self.send_file_bt.SetMinSize((120,40))
+        self.send_file_bt.Disable()
         self.send_sizer.Add(self.send_file_bt, 0, wx.ALIGN_CENTER, 0)
 
         # Gauge:
@@ -306,12 +312,19 @@ class Frame(wx.Frame):
         self.send_sizer.Layout()
 
 
+    def onFileTransferComplete(self, event):
+        """ Update the 'SEND' button availability when a file transfer is complete. """
+
+        self.updateSendBtnAvailability()
+
+
     def setFilePath(self, file_path, update_layout=True):
         """ Set a new file path, and update the GUI accordingly. """
 
         self.inputFilePath = file_path
         self.progressInfo = None
         self.updateFileLabel(update_layout)
+        self.updateSendBtnAvailability()
 
 
     def setProgressInfo(self, info):
@@ -321,6 +334,13 @@ class Frame(wx.Frame):
 
         self.progressInfo = info
         wx.PostEvent(self, UpdateProgressInfo())
+
+
+    def updateSendBtnAvailability(self):
+        if self.inputFilePath == '' or self.isSending():
+            self.send_file_bt.Disable()
+        else:
+            self.send_file_bt.Enable()
 
 
     def updateFileLabel(self, update_layout=True):
@@ -361,26 +381,30 @@ class Frame(wx.Frame):
             self.setFilePath(dlg.GetPath())
             dlg.Destroy()
 
-            print("You chose the following file(s):")
-            print(self.inputFilePath)
+
+    def isSending(self):
+        return self.sendFileThread and self.sendFileThread.isAlive()
 
 
     def send(self, event):
         """ Start a file transfer. """
 
-        if self.sendFileThread and self.sendFileThread.isAlive():
-            logger.reset()
-            print "Already sending file! Aborting."
+        if self.isSending():
+            if self.verbose:
+                logger.reset()
+                print "Already sending file! Aborting."
             return
 
         lock = threading.Lock()
 
-        self.sendFileThread = MassoThread(self.ip_input.GetValue(), self.inputFilePath,
+        self.sendFileThread = MassoThread(self, self.ip_input.GetValue(), self.inputFilePath,
                 lock, self.verbose)
         self.progressThread = ProgressThread(self, self.sendFileThread.sender, lock)
 
         self.sendFileThread.start()
         self.progressThread.start()
+
+        self.updateSendBtnAvailability()
 
 
 
