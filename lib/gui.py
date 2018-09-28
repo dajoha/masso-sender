@@ -206,7 +206,7 @@ class Frame(wx.Frame):
         self.file_path = wx.StaticText(self.notebook_panel_connect, wx.ID_ANY, "", style=wx.ALIGN_CENTER)
         self.file_path.SetMinSize((136, 25))
         self.file_path.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
-        file_sizer.Add(self.file_path, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        file_sizer.Add(self.file_path, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND | wx.TOP, 10)
 
         self.grid_sizer_2.Add(file_sizer, 0, wx.ALIGN_CENTER, 0)
 
@@ -330,10 +330,11 @@ class Frame(wx.Frame):
             update_layout: indicates if the layout has to be redrawn
         """
 
-        basename = os.path.basename(self.inputFilePath)
-        text = 'File: {}'.format(basename)
-        if self.progressInfo != None:
-            text += ' - {}%'.format(self.progressInfo.percent)
+        if len(self.inputFilePath) != 0:
+            basename = os.path.basename(self.inputFilePath)
+            text = 'File: {}'.format(basename)
+        else:
+            text = ''
         self.file_path.SetLabel(text)
         if update_layout:
             self.grid_sizer_2.Layout()
