@@ -22,6 +22,8 @@ MASSO_PORT = 65535
 # The data block size to send to the Masso device:
 BLOCKSIZE = 1460
 
+# For debug:
+MASSO_DEBUG_EMUL = os.getenv('MASSO_DEBUG_EMUL', False)
 
 
 ##############################  UTILITY FUNCTIONS  #############################
@@ -206,13 +208,19 @@ class MassoSocket:
         if isinstance(data, Frame):
             self.send(data.data)
         else:
-            self.sock.sendto(data, self.destAddress)
+            if MASSO_DEBUG_EMUL:
+                pass
+            else:
+                self.sock.sendto(data, self.destAddress)
 
 
     def recv(self):
         """ Try to receive a pending frame. May throw an exception on fail. """
 
-        return self.sock.recv(2048)
+        if MASSO_DEBUG_EMUL:
+            return "fake data"
+        else:
+            return self.sock.recv(2048)
 
 
     def error(self, msg):
