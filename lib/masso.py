@@ -5,6 +5,7 @@ import socket
 import time
 
 from exceptions import MassoException
+import logger
 
 
 #################################  CONSTANTS  ##################################
@@ -105,6 +106,15 @@ def getBytearray(data):
         raise MassoException("Frame: data type not handled ({})"
             .format(type(data))
         )
+
+
+def logProgress(N, nb_blocks):
+    """ Display a progress message. """
+
+    logger.erase()
+    percent = N * 100 / nb_blocks
+    msg = "[{}%] Data block {}/{}".format(percent, N, nb_blocks)
+    logger.log(msg)
 
 
 
@@ -275,40 +285,34 @@ class Frame:
 def sendFile(masso_ip, input_file):
     """ Send a file to a Masso device. """
 
-    # Convert the given argument to default-encoded strings:
-
     masso_ip = to_str(masso_ip, 'Bad IP value')
 
-    input_file = to_str(input_file, 'Bad input file')
-    filename = os.path.basename(input_file)
-
-
-    print("Masso target IP: {}".format(masso_ip))
-    print("Masso target port: {}".format(MASSO_PORT))
-    print("Input file : {}".format(input_file))
+    print("Masso target: {}:{}".format(masso_ip, MASSO_PORT))
 
 
     # Create the MassoSocket instance:
+
     masso_sock = MassoSocket(masso_ip, input_file)
 
 
     # Retrieve the file data:
+
+    input_file = to_str(input_file, 'Bad input file')
+    filename = os.path.basename(input_file)
 
     input_data = open(input_file, "rb").read()
 
     data_length = len(input_data)
     nb_blocks = data_length / BLOCKSIZE + 1
 
-    print("Longueur du fichier : {}".format(data_length))
-    print("Nombre de blocs : {}".format(nb_blocks))
-
+    print("Filename: {} ({} bytes, {} data block{})".format(
+        filename, data_length, nb_blocks, nb_blocks > 1 and 's' or ''
+    ))
 
 
     # Send the file transfer order frame to the Masso device:
 
     response = masso_sock.sendFileTransferOrder(filename, data_length)
-
-    dumpStrData('RESPONSE', response)
 
 
     # Send the file data to the Masso device:
@@ -316,4 +320,9 @@ def sendFile(masso_ip, input_file):
     for N in range(nb_blocks) :
         data_block = input_data[N*BLOCKSIZE : (N+1)*BLOCKSIZE]
         response = masso_sock.sendDataBlock(N, data_block)
+        logProgress(N, nb_blocks)
+
+    logProgress(nb_blocks, nb_blocks)
+    logger.newline()
+    print "File transfered with success."
 
