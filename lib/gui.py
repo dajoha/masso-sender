@@ -44,12 +44,12 @@ UpdateProgressInfo, EVT_UPDATE_PROGRESS_INFO = wx.lib.newevent.NewEvent()
 class MassoThread(threading.Thread):
     """ Thread which processes file transfers. """
 
-    def __init__(self, ip, filename, lock):
+    def __init__(self, ip, filename, lock, verbose):
         threading.Thread.__init__(self)
         self.ip = ip
         self.filename = filename
         self.lock = lock
-        self.sender = masso.FileSender(self.ip, self.filename, self.lock)
+        self.sender = masso.FileSender(self.ip, self.filename, self.lock, verbose)
 
     def run(self):
         self.sender.start()
@@ -80,9 +80,11 @@ class ProgressThread(threading.Thread):
 class Frame(wx.Frame):
     """ The main window of the application. """
 
-    def __init__(self, default_ip=None, default_file=''):
+    def __init__(self, default_ip=None, default_file='', verbose=False):
         if (default_ip == None):
             default_ip = DEFAULT_IP_ADDRESS
+
+        self.verbose = verbose
 
         # begin wxGlade: Frame.__init__
         wx.Frame.__init__(self, None, wx.ID_ANY, "", style=wx.DEFAULT_FRAME_STYLE)
@@ -372,7 +374,8 @@ class Frame(wx.Frame):
 
         lock = threading.Lock()
 
-        self.sendFileThread = MassoThread(self.ip_input.GetValue(), self.inputFilePath, lock)
+        self.sendFileThread = MassoThread(self.ip_input.GetValue(), self.inputFilePath,
+                lock, self.verbose)
         self.progressThread = ProgressThread(self, self.sendFileThread.sender, lock)
 
         self.sendFileThread.start()
@@ -381,13 +384,14 @@ class Frame(wx.Frame):
 
 
 class MassoSenderApp(wx.App):
-    def __init__(self, default_file='', default_ip=DEFAULT_IP_ADDRESS):
+    def __init__(self, default_file='', default_ip=DEFAULT_IP_ADDRESS, verbose=False):
         self.defaultIp = default_ip
         self.defaultFile = default_file
+        self.verbose = verbose
         wx.App.__init__(self)
 
     def OnInit(self):
-        self.frame = Frame(default_ip=self.defaultIp, default_file=self.defaultFile)
+        self.frame = Frame(default_ip=self.defaultIp, default_file=self.defaultFile, verbose=self.verbose)
         self.SetTopWindow(self.frame)
         self.frame.Show()
         return True

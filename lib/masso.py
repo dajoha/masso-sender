@@ -339,19 +339,20 @@ class ProgressInfo:
 class FileSender:
     """ Represent the process of sending a file to a Masso device. """
 
-    def __init__(self, masso_ip, input_file, lock=None):
+    def __init__(self, masso_ip, input_file, lock=None, verbose=True):
         """ Constructor. """
 
         self.massoIp = to_str(masso_ip, 'Bad IP value')
         self.inputFile = to_str(input_file, 'Bad input file')
+        self.verbose = verbose
 
-        print("Masso target: {}:{}".format(self.massoIp, MASSO_PORT))
+        self.log("Masso target: {}:{}".format(self.massoIp, MASSO_PORT))
 
         # Create the MassoSocket instance:
 
         self.socket = MassoSocket(self.massoIp, self.inputFile)
 
-        print("Using client port {}".format(self.socket.sock.getsockname()[1]))
+        self.log("Using client port {}".format(self.socket.sock.getsockname()[1]))
 
         # Retrieve the file data:
 
@@ -360,7 +361,7 @@ class FileSender:
         self.nbBlocks = self.dataLength / BLOCKSIZE + 1
         self.filename = os.path.basename(self.inputFile)
 
-        print("Filename: {} ({} bytes, {} data block{})".format(
+        self.log("Filename: {} ({} bytes, {} data block{})".format(
             self.filename, self.dataLength, self.nbBlocks, self.nbBlocks > 1 and 's' or ''
         ))
 
@@ -393,8 +394,9 @@ class FileSender:
         self.currentBlock += 1
         self.setProgressInfo()
         self.logProgress()
-        logger.newline()
-        print "File transfered successfully."
+        if self.verbose:
+            logger.newline()
+        self.log( "File transfered successfully.")
 
         self.socket.close()
 
@@ -407,8 +409,18 @@ class FileSender:
                 self.progressInfo = ProgressInfo(self)
 
 
+    def log(self, msg):
+        """ Display a message only if verbose is activated. """
+
+        if self.verbose:
+            print(msg)
+
+
     def logProgress(self):
         """ Display a progress message. """
+
+        if not self.verbose:
+            return
 
         percent = self.currentBlock * 100 / self.nbBlocks
         msg = "[{}%] Data block {}/{} (recv retries: avg:{}, max:{}, allowed:{})".format(
@@ -422,15 +434,4 @@ class FileSender:
         logger.log(msg)
 
 # END OF CLASS 'FileSender'
-
-
-
-###############################  MAIN FUNCTIONS  ###############################
-
-
-def sendFile(masso_ip, input_file):
-    """ Send a file to a Masso device. """
-
-    sender = FileSender(masso_ip, input_file)
-    sender.start()
 

@@ -19,10 +19,11 @@ def main():
             raise MassoException("The -f option is required")
         else:
             import lib.masso as masso
-            masso.sendFile(args.ip, args.file)
+            sender = masso.FileSender(args.ip, args.file, verbose=(not args.quiet))
+            sender.start()
     else:
         import lib.gui as gui
-        app = gui.MassoSenderApp(default_ip=args.ip, default_file=args.file)
+        app = gui.MassoSenderApp(default_ip=args.ip, default_file=args.file, verbose=args.verbose)
         app.MainLoop()
 
 
