@@ -13,6 +13,7 @@ import time
 
 # Local:
 import masso
+import logger
 
 
 DEFAULT_IP_ADDRESS = "192.168.0.22"
@@ -182,6 +183,7 @@ class Frame(wx.Frame):
 
     def onFrameActivate(self, event):
         """ A workaround for the Linux "Awesome" window manager.  """
+
         self.updateFileLabel()
 
 
@@ -192,6 +194,7 @@ class Frame(wx.Frame):
 
     def setFilePath(self, file_path, update_layout=True):
         """ Set a new file path, and update the GUI accordingly. """
+
         self.inputFilePath = file_path
         self.progressInfo = None
         self.updateFileLabel(update_layout)
@@ -201,6 +204,7 @@ class Frame(wx.Frame):
         """ Update the file transfer progress informations, and send a signal in order to
             refresh the display.
         """
+
         self.progressInfo = info
         wx.PostEvent(self, UpdateProgressInfo())
 
@@ -211,6 +215,7 @@ class Frame(wx.Frame):
         Args:
             update_layout: indicates if the layout has to be redrawn
         """
+
         basename = os.path.basename(self.inputFilePath)
         text = 'File: {}'.format(basename)
         if self.progressInfo != None:
@@ -227,6 +232,7 @@ class Frame(wx.Frame):
 
     def onOpenFile(self, event):
         """ Create and show the Open FileDialog """
+
         dlg = wx.FileDialog(
             self,
             message = "Choose a file",
@@ -246,6 +252,12 @@ class Frame(wx.Frame):
 
     def send(self, event):
         """ Start a file transfer. """
+
+        if self.sendFileThread and self.sendFileThread.isAlive():
+            logger.reset()
+            print "Already sending file! Aborting."
+            return
+
         lock = threading.Lock()
 
         self.sendFileThread = MassoThread(self.ip_input.GetValue(), self.inputFilePath, lock)
