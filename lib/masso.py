@@ -14,9 +14,6 @@ import logger
 # The encoding to use to send filenames for example (TODO?):
 ENCODING = 'utf-8'
 
-# The client port (TODO?)
-CLIENT_PORT = 11000
-
 # The Masso device port:
 MASSO_PORT = 65535
 
@@ -143,7 +140,7 @@ class MassoSocket:
             socket.AF_INET,   # Internet
             socket.SOCK_DGRAM # UDP
         )
-        self.sock.bind(('0.0.0.0', CLIENT_PORT))
+        self.sock.bind(('0.0.0.0', 0))
         self.sock.setblocking(0)
 
         self.destAddress = (self.ip, MASSO_PORT)
@@ -353,6 +350,8 @@ class FileSender:
         # Create the MassoSocket instance:
 
         self.socket = MassoSocket(self.massoIp, self.inputFile)
+
+        print("Using client port {}".format(self.socket.sock.getsockname()[1]))
 
         # Retrieve the file data:
 
