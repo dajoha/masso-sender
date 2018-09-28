@@ -6,7 +6,10 @@
 
 import os
 import wx
+import wx.lib.newevent
 import wx.grid
+import threading
+import time
 
 # Local:
 import masso
@@ -19,8 +22,50 @@ WILDCARDS = \
     "All files (*.*)|*.*"
 
 
+# A new wx event to handle the file transfer progress between multiple threads:
+UpdateProgressInfo, EVT_UPDATE_PROGRESS_INFO = wx.lib.newevent.NewEvent()
+
+
+class MassoThread(threading.Thread):
+    """ Thread which processes file transfers. """
+
+    def __init__(self, ip, filename, lock):
+        threading.Thread.__init__(self)
+        self.ip = ip
+        self.filename = filename
+        self.lock = lock
+        self.sender = masso.FileSender(self.ip, self.filename, self.lock)
+
+    def run(self):
+        self.sender.start()
+
+
+
+class ProgressThread(threading.Thread):
+    """ Thread which regularly retrieves the file transfer progress, and update
+        the GUI accordingly.
+    """
+
+    def __init__(self, frame, sender, lock):
+        threading.Thread.__init__(self)
+        self.frame = frame
+        self.sender = sender
+        self.lock = lock
+
+    def run(self):
+        percent = 0
+        while percent != 100:
+            time.sleep(0.05)
+            with self.lock:
+                infos = self.sender.progressInfo
+                percent = infos.percent
+                self.frame.setProgressInfo(infos)
+
+
 
 class Frame(wx.Frame):
+    """ The main window of the application. """
+
     def __init__(self, default_ip=None, default_file=''):
         if (default_ip == None):
             default_ip = DEFAULT_IP_ADDRESS
@@ -47,11 +92,18 @@ class Frame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.send, self.send_file_bt)
         # end wxGlade
 
+        self.progressInfo = None
+
         # Set the file path initially (empty path):
         self.setFilePath(default_file, update_layout=False)
 
         # A workaround for the Linux "Awesome" window manager:
-        self.Bind(wx.EVT_ACTIVATE, self.AwesomeWM_Workaround)
+        self.Bind(wx.EVT_ACTIVATE, self.onFrameActivate)
+
+        self.sendFileThread = None
+        self.progressThread = None
+
+        self.Bind(EVT_UPDATE_PROGRESS_INFO, self.onUpdateProgressInfo)
 
 
     def __set_properties(self):
@@ -128,15 +180,29 @@ class Frame(wx.Frame):
         # end wxGlade
 
 
-    def AwesomeWM_Workaround(self, event):
+    def onFrameActivate(self, event):
         """ A workaround for the Linux "Awesome" window manager.  """
+        self.updateFileLabel()
+
+
+    def onUpdateProgressInfo(self, event):
+        """ Update the display in order to show the file transfer progress.  """
         self.updateFileLabel()
 
 
     def setFilePath(self, file_path, update_layout=True):
         """ Set a new file path, and update the GUI accordingly. """
         self.inputFilePath = file_path
+        self.progressInfo = None
         self.updateFileLabel(update_layout)
+
+
+    def setProgressInfo(self, info):
+        """ Update the file transfer progress informations, and send a signal in order to
+            refresh the display.
+        """
+        self.progressInfo = info
+        wx.PostEvent(self, UpdateProgressInfo())
 
 
     def updateFileLabel(self, update_layout=True):
@@ -146,7 +212,10 @@ class Frame(wx.Frame):
             update_layout: indicates if the layout has to be redrawn
         """
         basename = os.path.basename(self.inputFilePath)
-        self.file_path.SetLabel('File: {}'.format(basename))
+        text = 'File: {}'.format(basename)
+        if self.progressInfo != None:
+            text += ' - {}%'.format(self.progressInfo.percent)
+        self.file_path.SetLabel(text)
         if update_layout:
             self.grid_sizer_2.Layout()
 
@@ -176,10 +245,14 @@ class Frame(wx.Frame):
 
 
     def send(self, event):
-        #if not self.inputFilePath:
-        #    print("Choisissez un fichier")
-        #else:
-        masso.sendFile(self.ip_input.GetValue(), self.inputFilePath)
+        """ Start a file transfer. """
+        lock = threading.Lock()
+
+        self.sendFileThread = MassoThread(self.ip_input.GetValue(), self.inputFilePath, lock)
+        self.progressThread = ProgressThread(self, self.sendFileThread.sender, lock)
+
+        self.sendFileThread.start()
+        self.progressThread.start()
 
 
 

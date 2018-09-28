@@ -263,6 +263,12 @@ class MassoSocket:
             raise e
 
 
+    def close(self):
+        """ Close the socket. """
+
+        self.sock.close()
+
+
     def updateRecvInfos(self):
         """ Update debug informations about the number of retries for 'recv()'. """
 
@@ -274,6 +280,7 @@ class MassoSocket:
 
     def error(self, msg):
         """ Throw an error relative to MassoSocket. """
+
         raise MassoException("MassoSocket: {}".format(msg))
 
 # END OF CLASS 'MassoSocket'
@@ -318,10 +325,24 @@ class Frame:
 
 
 
+class ProgressInfo:
+    """ Describe the progress of a file transfer. """
+
+    def __init__(self, file_sender):
+        self.currentBlock = file_sender.currentBlock
+        self.nbBlocks = file_sender.nbBlocks
+        self.averageRecvRetries = file_sender.socket.averageRecvRetries
+        self.maxRecvFrameRetries = file_sender.socket.maxRecvFrameRetries
+        self.maxAllowedRecvRetries = NB_RECV_RETRIES
+        self.percent = self.currentBlock * 100 / self.nbBlocks
+
+
+
+
 class FileSender:
     """ Represent the process of sending a file to a Masso device. """
 
-    def __init__(self, masso_ip, input_file):
+    def __init__(self, masso_ip, input_file, lock=None):
         """ Constructor. """
 
         self.massoIp = to_str(masso_ip, 'Bad IP value')
@@ -335,12 +356,10 @@ class FileSender:
 
         # Retrieve the file data:
 
-        self.filename = os.path.basename(self.inputFile)
-
         self.inputData = open(self.inputFile, "rb").read()
-
         self.dataLength = len(self.inputData)
         self.nbBlocks = self.dataLength / BLOCKSIZE + 1
+        self.filename = os.path.basename(self.inputFile)
 
         print("Filename: {} ({} bytes, {} data block{})".format(
             self.filename, self.dataLength, self.nbBlocks, self.nbBlocks > 1 and 's' or ''
@@ -348,7 +367,12 @@ class FileSender:
 
         # Initialize progress information:
 
-        self.currentBlock = -1
+        # The current data block number being transfered:
+        self.currentBlock = 0
+        # 'lock' is used for multi-threading:
+        self.lock = lock
+        # Update the progress information initially:
+        self.setProgressInfo()
 
 
     def start(self):
@@ -364,11 +388,24 @@ class FileSender:
         for self.currentBlock in range(self.nbBlocks) :
             data_block = self.inputData[self.currentBlock*BLOCKSIZE : (self.currentBlock+1)*BLOCKSIZE]
             response = self.socket.sendDataBlock(self.currentBlock, data_block)
+            self.setProgressInfo()
             self.logProgress()
 
+        self.currentBlock += 1
+        self.setProgressInfo()
         self.logProgress()
         logger.newline()
-        print "File transfered with success."
+        print "File transfered successfully."
+
+        self.socket.close()
+
+
+    def setProgressInfo(self):
+        """ Update the file transfer progress information. """
+
+        if self.lock:
+            with self.lock:
+                self.progressInfo = ProgressInfo(self)
 
 
     def logProgress(self):
