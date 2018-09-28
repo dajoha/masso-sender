@@ -27,6 +27,20 @@ WILDCARDS = \
 UpdateProgressInfo, EVT_UPDATE_PROGRESS_INFO = wx.lib.newevent.NewEvent()
 
 
+
+#  def randomBgColor(widget):
+#      return
+#      import random
+#      minval = 100
+#      maxval = 255
+#      r = random.randint(minval, maxval)
+#      g = random.randint(minval, maxval)
+#      b = random.randint(minval, maxval)
+#      col = wx.Colour(r, g, b, 255)
+#      widget.SetBackgroundColour(col)
+
+
+
 class MassoThread(threading.Thread):
     """ Thread which processes file transfers. """
 
@@ -163,6 +177,9 @@ class Frame(wx.Frame):
 
         self.grid_sizer_2.Add(ip_sizer, 0, wx.EXPAND | wx.TOP, 10)
 
+
+        # CONNECT SECTION:
+
         # Button 'CONNECT':
         self.connect_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
         self.grid_sizer_2.Add(self.connect_bt, 0, wx.ALIGN_CENTER, 0)
@@ -179,7 +196,7 @@ class Frame(wx.Frame):
         # Text label (file path):
         self.file_path = wx.StaticText(self.notebook_panel_connect, wx.ID_ANY, "", style=wx.ALIGN_CENTER)
         self.file_path.SetMinSize((136, 25))
-        self.file_path.SetFont(wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
+        self.file_path.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         file_sizer.Add(self.file_path, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
 
         self.grid_sizer_2.Add(file_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
@@ -187,9 +204,23 @@ class Frame(wx.Frame):
 
         # SEND SECTION:
 
+        self.send_sizer = wx.BoxSizer(wx.VERTICAL)
+
         # Button 'SEND':
         self.send_file_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
-        self.grid_sizer_2.Add(self.send_file_bt, 0, wx.ALIGN_CENTER, 0)
+        self.send_sizer.Add(self.send_file_bt, 0, wx.ALIGN_CENTER, 0)
+
+        # Gauge:
+        self.gauge = wx.Gauge(self.notebook_panel_connect, wx.ID_ANY, 100)
+        self.send_sizer.Add(self.gauge, 0, wx.ALIGN_CENTER | wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        # Text label (progress):
+        self.progress_label = wx.StaticText(self.notebook_panel_connect, wx.ID_ANY, "", style=wx.ALIGN_CENTER)
+        self.send_sizer.Add(self.progress_label, 0, wx.ALIGN_CENTER, 0)
+
+        self.grid_sizer_2.Add(self.send_sizer, 0, wx.ALIGN_CENTER | wx.EXPAND, 0)
+
+
 
         self.notebook_panel_connect.SetSizer(self.grid_sizer_2)
 
@@ -249,14 +280,18 @@ class Frame(wx.Frame):
 
         # TODO: the current solution (using a firstActivate prop) is not very good:
         if self.firstActivate:
-            self.SetSize((400, 300))
+            self.SetSize((400, 400))
             self.Center()
             self.firstActivate = False
 
 
     def onUpdateProgressInfo(self, event):
         """ Update the display in order to show the file transfer progress.  """
-        self.updateFileLabel()
+
+        percent = self.progressInfo.percent
+        self.progress_label.SetLabel("{}%".format(percent))
+        self.gauge.SetValue(percent)
+        self.send_sizer.Layout()
 
 
     def setFilePath(self, file_path, update_layout=True):
