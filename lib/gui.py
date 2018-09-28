@@ -158,7 +158,12 @@ class Frame(wx.Frame):
         # begin wxGlade: Frame.__do_layout
 
         # CONNECT PANEL:
-        self.grid_sizer_2 = wx.GridSizer(4, 1, 0, 0)
+        self.grid_sizer_2 = wx.FlexGridSizer(4, 1, 0, 0)
+        #  self.grid_sizer_2.AddGrowableRow(0, 1)
+        self.grid_sizer_2.AddGrowableRow(1, 1)
+        self.grid_sizer_2.AddGrowableRow(2, 1)
+        #  self.grid_sizer_2.AddGrowableRow(3, 1)
+        self.grid_sizer_2.AddGrowableCol(0, 1)
 
 
         # IP SELECTION SECTION:
@@ -175,13 +180,14 @@ class Frame(wx.Frame):
         self.ip_input.SetMinSize((236, 35))
         ip_sizer.Add(self.ip_input, 0, wx.ALIGN_CENTER, 0)
 
-        self.grid_sizer_2.Add(ip_sizer, 0, wx.EXPAND | wx.TOP, 10)
+        self.grid_sizer_2.Add(ip_sizer, 0, wx.ALIGN_CENTER | wx.EXPAND | wx.TOP, 10)
 
 
         # CONNECT SECTION:
 
         # Button 'CONNECT':
         self.connect_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
+        self.connect_bt.SetMinSize((150,40))
         self.grid_sizer_2.Add(self.connect_bt, 0, wx.ALIGN_CENTER, 0)
 
 
@@ -191,6 +197,7 @@ class Frame(wx.Frame):
 
         # Button 'SELECT FILE'
         self.select_file_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
+        self.select_file_bt.SetMinSize((180,40))
         file_sizer.Add(self.select_file_bt, 0, wx.ALIGN_CENTER, 0)
 
         # Text label (file path):
@@ -199,7 +206,7 @@ class Frame(wx.Frame):
         self.file_path.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
         file_sizer.Add(self.file_path, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
 
-        self.grid_sizer_2.Add(file_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.EXPAND, 0)
+        self.grid_sizer_2.Add(file_sizer, 0, wx.ALIGN_CENTER, 0)
 
 
         # SEND SECTION:
@@ -208,17 +215,20 @@ class Frame(wx.Frame):
 
         # Button 'SEND':
         self.send_file_bt.SetFont(wx.Font(12, wx.DEFAULT, wx.NORMAL, wx.NORMAL, 0, "Futura Std"))
+        self.send_file_bt.SetMinSize((120,40))
         self.send_sizer.Add(self.send_file_bt, 0, wx.ALIGN_CENTER, 0)
 
         # Gauge:
         self.gauge = wx.Gauge(self.notebook_panel_connect, wx.ID_ANY, 100)
-        self.send_sizer.Add(self.gauge, 0, wx.ALIGN_CENTER | wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+        self.gauge.SetMaxSize(wx.Size(8000, 7))
+        self.send_sizer.Add(self.gauge, 0, wx.ALIGN_CENTER | wx.EXPAND | wx.TOP, 5)
 
         # Text label (progress):
         self.progress_label = wx.StaticText(self.notebook_panel_connect, wx.ID_ANY, "", style=wx.ALIGN_CENTER)
-        self.send_sizer.Add(self.progress_label, 0, wx.ALIGN_CENTER, 0)
+        self.progress_label.SetFont(wx.Font(11, wx.DEFAULT, wx.NORMAL, wx.LIGHT, 0, "Futura Std"))
+        self.send_sizer.Add(self.progress_label, 0, wx.ALIGN_CENTER | wx.TOP | wx.BOTTOM, 5)
 
-        self.grid_sizer_2.Add(self.send_sizer, 0, wx.ALIGN_CENTER | wx.EXPAND, 0)
+        self.grid_sizer_2.Add(self.send_sizer, 0, wx.ALIGN_CENTER | wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
 
 
