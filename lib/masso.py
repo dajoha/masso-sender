@@ -119,20 +119,6 @@ def getBytearray(data):
         )
 
 
-def logProgress(masso_socket, N, nb_blocks):
-    """ Display a progress message. """
-
-    percent = N * 100 / nb_blocks
-    msg = "[{}%] Data block {}/{} (recv retries: avg:{}, max:{}, allowed:{})".format(
-        percent,
-        N, nb_blocks,
-        masso_socket.averageRecvRetries, masso_socket.maxRecvFrameRetries,
-        NB_RECV_RETRIES
-    )
-
-    logger.erase()
-    logger.log(msg)
-
 
 
 ##############################  CLASS DEFINITIONS  #############################
@@ -332,50 +318,83 @@ class Frame:
 
 
 
+class FileSender:
+    """ Represent the process of sending a file to a Masso device. """
+
+    def __init__(self, masso_ip, input_file):
+        """ Constructor. """
+
+        self.massoIp = to_str(masso_ip, 'Bad IP value')
+        self.inputFile = to_str(input_file, 'Bad input file')
+
+        print("Masso target: {}:{}".format(self.massoIp, MASSO_PORT))
+
+        # Create the MassoSocket instance:
+
+        self.socket = MassoSocket(self.massoIp, self.inputFile)
+
+        # Retrieve the file data:
+
+        self.filename = os.path.basename(self.inputFile)
+
+        self.inputData = open(self.inputFile, "rb").read()
+
+        self.dataLength = len(self.inputData)
+        self.nbBlocks = self.dataLength / BLOCKSIZE + 1
+
+        print("Filename: {} ({} bytes, {} data block{})".format(
+            self.filename, self.dataLength, self.nbBlocks, self.nbBlocks > 1 and 's' or ''
+        ))
+
+        # Initialize progress information:
+
+        self.currentBlock = -1
+
+
+    def start(self):
+        """ Operate the file transfer. """
+
+        # Send the file transfer order frame to the Masso device:
+
+        response = self.socket.sendFileTransferOrder(self.filename, self.dataLength)
+
+
+        # Send the file data to the Masso device:
+
+        for self.currentBlock in range(self.nbBlocks) :
+            data_block = self.inputData[self.currentBlock*BLOCKSIZE : (self.currentBlock+1)*BLOCKSIZE]
+            response = self.socket.sendDataBlock(self.currentBlock, data_block)
+            self.logProgress()
+
+        self.logProgress()
+        logger.newline()
+        print "File transfered with success."
+
+
+    def logProgress(self):
+        """ Display a progress message. """
+
+        percent = self.currentBlock * 100 / self.nbBlocks
+        msg = "[{}%] Data block {}/{} (recv retries: avg:{}, max:{}, allowed:{})".format(
+            percent,
+            self.currentBlock, self.nbBlocks,
+            self.socket.averageRecvRetries, self.socket.maxRecvFrameRetries,
+            NB_RECV_RETRIES
+        )
+
+        logger.erase()
+        logger.log(msg)
+
+# END OF CLASS 'FileSender'
+
+
+
 ###############################  MAIN FUNCTIONS  ###############################
 
 
 def sendFile(masso_ip, input_file):
     """ Send a file to a Masso device. """
 
-    masso_ip = to_str(masso_ip, 'Bad IP value')
-
-    print("Masso target: {}:{}".format(masso_ip, MASSO_PORT))
-
-
-    # Create the MassoSocket instance:
-
-    masso_sock = MassoSocket(masso_ip, input_file)
-
-
-    # Retrieve the file data:
-
-    input_file = to_str(input_file, 'Bad input file')
-    filename = os.path.basename(input_file)
-
-    input_data = open(input_file, "rb").read()
-
-    data_length = len(input_data)
-    nb_blocks = data_length / BLOCKSIZE + 1
-
-    print("Filename: {} ({} bytes, {} data block{})".format(
-        filename, data_length, nb_blocks, nb_blocks > 1 and 's' or ''
-    ))
-
-
-    # Send the file transfer order frame to the Masso device:
-
-    response = masso_sock.sendFileTransferOrder(filename, data_length)
-
-
-    # Send the file data to the Masso device:
-
-    for N in range(nb_blocks) :
-        data_block = input_data[N*BLOCKSIZE : (N+1)*BLOCKSIZE]
-        response = masso_sock.sendDataBlock(N, data_block)
-        logProgress(masso_sock, N, nb_blocks)
-
-    logProgress(masso_sock, nb_blocks, nb_blocks)
-    logger.newline()
-    print "File transfered with success."
+    sender = FileSender(masso_ip, input_file)
+    sender.start()
 
